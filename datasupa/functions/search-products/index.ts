@@ -197,6 +197,10 @@ function generateIndianMarketResults(query: string): GoogleShoppingResult[] {
   else if (/jeans|shirt|clothing/i.test(q)) basePrice = 2499;
   else if (/vacuum|dyson/i.test(q)) basePrice = 39999;
   else if (/mixer|grinder|preethi/i.test(q)) basePrice = 7999;
+  else if (/bottle|water bottle|flask|sipper/i.test(q)) basePrice = 499;
+  else if (/coconut oil|hair oil|cooking oil/i.test(q)) basePrice = 399;
+  else if (/pen|pens|ball pen|gel pen|marker/i.test(q)) basePrice = 149;
+  else if (/pencil|notebook|stationery/i.test(q)) basePrice = 199;
   else if (/watch/i.test(q)) basePrice = 4999;
   else if (/refrigerator|fridge/i.test(q)) basePrice = 24999;
   else if (/washing machine/i.test(q)) basePrice = 19999;

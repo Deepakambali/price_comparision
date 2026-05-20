@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Loader2, ExternalLink, X, Sparkles } from 'lucide-react';
 import { getFunctionUrl, getSupabaseHeaders, readJsonResponse } from '../lib/api';
 import { getFallbackSearchResults, shouldUseFallback } from '../lib/fallbackData';
@@ -18,20 +18,39 @@ interface SearchResult {
 
 interface LiveSearchProps {
   onSelect: (result: SearchResult) => void;
+  onResults?: (results: SearchResult[]) => void;
+  showDropdownResults?: boolean;
+  autoRefreshMs?: number;
+  onStatusChange?: (status: { source: 'serpapi' | 'generated' | 'fallback' | null; lastUpdated: Date | null }) => void;
 }
 
 interface SearchProductsResponse {
   results?: SearchResult[];
+  source?: 'serpapi' | 'generated';
 }
 
-export default function LiveSearch({ onSelect }: LiveSearchProps) {
+export default function LiveSearch({
+  onSelect,
+  onResults,
+  showDropdownResults = true,
+  autoRefreshMs = 0,
+  onStatusChange,
+}: LiveSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<'serpapi' | 'generated' | 'fallback' | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const updateStatus = useCallback((nextSource: 'serpapi' | 'generated' | 'fallback' | null, nextUpdated: Date | null) => {
+    setSource(nextSource);
+    setLastUpdated(nextUpdated);
+    onStatusChange?.({ source: nextSource, lastUpdated: nextUpdated });
+  }, [onStatusChange]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -43,9 +62,11 @@ export default function LiveSearch({ onSelect }: LiveSearchProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const searchProducts = async (searchQuery: string) => {
+  const searchProducts = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim() || searchQuery.trim().length < 2) {
       setResults([]);
+      onResults?.([]);
+      updateStatus(null, null);
       setShowDropdown(false);
       return;
     }
@@ -60,19 +81,36 @@ export default function LiveSearch({ onSelect }: LiveSearchProps) {
 
       const data = await readJsonResponse<SearchProductsResponse>(response, 'Search failed');
       setResults(data.results || []);
-      setShowDropdown(true);
+      onResults?.(data.results || []);
+      updateStatus(data.source || null, new Date());
+      setShowDropdown(showDropdownResults);
     } catch (err) {
       if (shouldUseFallback(err)) {
-        setResults(getFallbackSearchResults(searchQuery));
-        setShowDropdown(true);
+        const fallbackResults = getFallbackSearchResults(searchQuery);
+        setResults(fallbackResults);
+        onResults?.(fallbackResults);
+        updateStatus('fallback', new Date());
+        setShowDropdown(showDropdownResults);
       } else {
         setError(err instanceof Error ? err.message : 'Search failed. Please try again.');
         setResults([]);
+        onResults?.([]);
+        updateStatus(null, null);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [onResults, showDropdownResults, updateStatus]);
+
+  useEffect(() => {
+    if (!autoRefreshMs || query.trim().length < 2) return undefined;
+
+    const interval = setInterval(() => {
+      searchProducts(query);
+    }, autoRefreshMs);
+
+    return () => clearInterval(interval);
+  }, [autoRefreshMs, query, searchProducts]);
 
   const handleInput = (value: string) => {
     setQuery(value);
@@ -103,7 +141,7 @@ export default function LiveSearch({ onSelect }: LiveSearchProps) {
         )}
         {!loading && query && (
           <button
-            onClick={() => { setQuery(''); setResults([]); setShowDropdown(false); }}
+            onClick={() => { setQuery(''); setResults([]); onResults?.([]); updateStatus(null, null); setShowDropdown(false); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
           >
             <X className="w-4 h-4" />
@@ -153,14 +191,17 @@ export default function LiveSearch({ onSelect }: LiveSearchProps) {
             <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
               <span className="text-xs text-slate-400">
-                Click a result to compare prices, or{' '}
+                {source === 'serpapi'
+                  ? 'Live Google Shopping results. '
+                  : 'Estimated demo results. Add SERPAPI_KEY for real-time prices. '}
+                {lastUpdated && `Updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. `}
                 <a
                   href={`https://www.google.com/search?q=${encodeURIComponent(query + ' price india shopping')}&tbm=shop`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-600 hover:underline"
                 >
-                  view on Google Shopping
+                  View on Google Shopping
                 </a>
               </span>
             </div>

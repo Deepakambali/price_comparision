@@ -1,4 +1,14 @@
-import { TrendingDown, TrendingUp, Minus, Star, ShoppingCart, ExternalLink, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import {
+  TrendingDown,
+  TrendingUp,
+  Minus,
+  Star,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  ShieldCheck,
+} from 'lucide-react';
 import { useState } from 'react';
 import type { ProductWithPrices, PricePrediction } from '../lib/types';
 import { formatINR } from '../lib/utils';
@@ -12,6 +22,13 @@ interface ProductCardProps {
 }
 
 const storeLogos: Record<string, { label: string; className: string }> = {
+  'Nike India': { label: 'N', className: 'bg-[#111111] text-white' },
+  'Apple India': { label: '', className: 'bg-[#1d1d1f] text-white' },
+  'Samsung India': { label: 'S', className: 'bg-[#1428a0] text-white' },
+  'Milton India': { label: 'M', className: 'bg-[#005baa] text-white' },
+  'Xiaomi India': { label: 'Mi', className: 'bg-[#ff6900] text-white' },
+  'boAt Lifestyle': { label: 'b', className: 'bg-[#ed1c24] text-white' },
+  Meesho: { label: 'M', className: 'bg-[#9f2089] text-white' },
   'Amazon India': { label: 'a', className: 'bg-[#ff9900] text-slate-950' },
   Flipkart: { label: 'F', className: 'bg-[#2874f0] text-white' },
   Croma: { label: 'C', className: 'bg-[#8edccf] text-slate-900' },
@@ -32,6 +49,55 @@ function StoreLogo({ storeName, isBest }: { storeName: string; isBest?: boolean 
   );
 }
 
+function ProductImage({ src, name, brand }: { src: string; name: string; brand: string }) {
+  const [failed, setFailed] = useState(false);
+  const isPhone = /galaxy|iphone|phone/i.test(name);
+  const isLaptop = /macbook|laptop/i.test(name);
+
+  return (
+    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 overflow-hidden flex-shrink-0 shadow-sm">
+      {src && !failed ? (
+        <img
+          src={src}
+          alt={name}
+          className="w-full h-full object-contain p-2"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-white">
+          {isLaptop ? (
+            <div className="flex flex-col items-center">
+              <div className="h-11 w-16 rounded-t-lg border-[3px] border-slate-700 bg-gradient-to-br from-slate-100 to-slate-300 shadow-sm">
+                <div className="mx-auto mt-1 h-1 w-1 rounded-full bg-slate-500" />
+                <div className="mx-auto mt-2 h-4 w-9 rounded bg-white/60" />
+              </div>
+              <div className="h-1.5 w-20 rounded-b-full bg-slate-700" />
+              <div className="mt-1 text-[9px] font-bold uppercase text-slate-500">MacBook Air</div>
+            </div>
+          ) : isPhone ? (
+            <div className="relative h-16 w-9 rounded-[10px] border-[3px] border-slate-800 bg-gradient-to-br from-slate-100 to-slate-300 shadow-sm">
+              <div className="absolute left-1 top-1.5 h-2 w-2 rounded-full bg-slate-600" />
+              <div className="absolute left-1 top-4 h-2 w-2 rounded-full bg-slate-500" />
+              <div className="absolute right-1 top-1.5 h-2 w-2 rounded-full bg-slate-500" />
+              <div className="absolute inset-x-2 bottom-2 h-6 rounded bg-white/60" />
+              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase text-slate-500">
+                Phone
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-[10px] font-semibold text-slate-400">{brand || 'Product'}</div>
+          )}
+        </div>
+      )}
+      <div className="absolute left-2 bottom-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm ring-1 ring-slate-200">
+        {brand}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductCard({ product, prediction, onPredict, isBestDeal }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showPrediction, setShowPrediction] = useState(false);
@@ -45,12 +111,19 @@ export default function ProductCard({ product, prediction, onPredict, isBestDeal
     : <Minus className="w-4 h-4 text-slate-400" />;
 
   const recBadge = prediction?.recommendation === 'buy_now'
-    ? { label: 'Buy Now', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+    ? { label: 'Buy Now', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', panel: 'from-emerald-50 to-white border-emerald-200' }
     : prediction?.recommendation === 'wait'
-    ? { label: 'Wait for Drop', color: 'bg-amber-100 text-amber-700 border-amber-200' }
+    ? { label: 'Wait for Drop', color: 'bg-amber-100 text-amber-700 border-amber-200', panel: 'from-amber-50 to-white border-amber-200' }
     : prediction
-    ? { label: 'Good Deal', color: 'bg-sky-100 text-sky-700 border-sky-200' }
+    ? { label: 'Good Deal', color: 'bg-sky-100 text-sky-700 border-sky-200', panel: 'from-sky-50 to-white border-sky-200' }
     : null;
+  const confidencePercent = prediction ? Math.round(prediction.confidence * 100) : 0;
+  const predictionChangeLabel = prediction
+    ? `${prediction.predicted_change > 0 ? '+' : ''}${prediction.predicted_change_percent}%`
+    : '';
+  const predictionTone = prediction?.predicted_change && prediction.predicted_change > 0
+    ? 'text-red-500'
+    : 'text-emerald-600';
 
   return (
     <div className={`group bg-white rounded-2xl border transition-all duration-300 hover:shadow-lg ${
@@ -67,20 +140,7 @@ export default function ProductCard({ product, prediction, onPredict, isBestDeal
 
       <div className="p-5">
         <div className="flex gap-4">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-white border border-slate-100 overflow-hidden flex-shrink-0 shadow-sm">
-            {product.image_url ? (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-300">
-                <ShoppingCart className="w-8 h-8" />
-              </div>
-            )}
-          </div>
+          <ProductImage src={product.image_url} name={product.name} brand={product.brand} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
@@ -144,23 +204,55 @@ export default function ProductCard({ product, prediction, onPredict, isBestDeal
 
           {showPrediction && prediction && (
             <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-1">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-slate-50 rounded-lg p-3 text-center">
-                  <div className="text-xs text-slate-400 mb-1">Predicted</div>
-                  <div className="text-lg font-bold text-slate-800">{formatINR(prediction.predicted_price)}</div>
+              <div className={`rounded-xl border bg-gradient-to-br ${recBadge?.panel || 'from-slate-50 to-white border-slate-200'} p-4`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                      Forecast for next month
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-end gap-2">
+                      <span className="text-2xl font-black text-slate-900">
+                        {formatINR(prediction.predicted_price)}
+                      </span>
+                      <span className={`pb-1 text-sm font-bold ${predictionTone}`}>
+                        {predictionChangeLabel}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Current best price is {formatINR(prediction.current_best_price)}
+                    </div>
+                  </div>
+                  {recBadge && (
+                    <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold ${recBadge.color}`}>
+                      {recBadge.label}
+                    </span>
+                  )}
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center">
-                  <div className="text-xs text-slate-400 mb-1">Change</div>
-                  <div className={`text-lg font-bold flex items-center justify-center gap-1 ${
-                    prediction.predicted_change < 0 ? 'text-emerald-600' : prediction.predicted_change > 0 ? 'text-red-500' : 'text-slate-500'
-                  }`}>
-                    {trendIcon}
-                    {prediction.predicted_change_percent > 0 ? '+' : ''}{prediction.predicted_change_percent}%
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-white/75 p-3 ring-1 ring-white">
+                    <div className="text-[11px] font-semibold uppercase text-slate-400">Trend</div>
+                    <div className="mt-1 flex items-center gap-1 text-sm font-bold capitalize text-slate-700">
+                      {trendIcon}
+                      {prediction.trend}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-white/75 p-3 ring-1 ring-white">
+                    <div className="text-[11px] font-semibold uppercase text-slate-400">Confidence</div>
+                    <div className="mt-1 text-sm font-bold text-slate-800">{confidencePercent}%</div>
+                  </div>
+                  <div className="rounded-lg bg-white/75 p-3 ring-1 ring-white">
+                    <div className="text-[11px] font-semibold uppercase text-slate-400">Change</div>
+                    <div className={`mt-1 text-sm font-bold ${predictionTone}`}>{predictionChangeLabel}</div>
                   </div>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center">
-                  <div className="text-xs text-slate-400 mb-1">Confidence</div>
-                  <div className="text-lg font-bold text-slate-800">{Math.round(prediction.confidence * 100)}%</div>
+
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/80">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
+                    style={{ width: `${confidencePercent}%` }}
+                  />
                 </div>
               </div>
 
